@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 gf = "0.6.1"
 rand = "0.8.5"
+base64 = "0.13.0"

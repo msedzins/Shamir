@@ -18,6 +18,34 @@ pub fn sss(secret: &str, threshold: u8, shares_num: u8) -> Vec<(u8, Vec<(u8, u8)
     shares
 }
 
+
+pub fn extract_share(shares: &Vec<(u8, Vec<(u8, u8)>)>, index: u8) -> String {
+    let mut share = Vec::new();
+    shares.iter().for_each(|s| {
+        share.push(s.1[index as usize]);
+    });
+    convert_share_to_base64(&share)
+}
+
+pub fn collect_shares(shares: &Vec<(u8, String)>) -> Vec<(u8, Vec<(u8, u8)>)> {
+    let mut converted_shares = Vec::new();
+    shares.iter().for_each(|s| {
+        converted_shares.push((s.0, convert_share_from_base64(&s.1)));
+    });    
+    
+    
+    let mut collected_shares = Vec::new();
+    let mut counter = 0;
+    converted_shares[0].1.iter().for_each(|s| {        
+        collected_shares.push((counter as u8,vec![(s.0, s.1)]));
+        for i in 1..shares.len() {
+            collected_shares[counter].1.push((converted_shares[i].1[counter].0, converted_shares[i].1[counter].1));
+        }
+        counter+=1;
+    });
+    collected_shares
+}
+
 pub fn recover(shares: &mut Vec<(u8, Vec<(u8, u8)>)>) -> String {
 
     shares.sort_by(|a, b | a.0.cmp(&b.0));
@@ -30,6 +58,26 @@ pub fn recover(shares: &mut Vec<(u8, Vec<(u8, u8)>)>) -> String {
 
 
     String::from_utf8(secret).unwrap()
+}
+
+fn convert_share_to_base64(shares: &Vec<(u8, u8)>) -> String {
+    let flattened: Vec<u8> = shares.into_iter().flat_map(|(a, b)| vec![*a, *b]).collect();
+    let base64 = base64::encode(&flattened);
+    
+    base64
+}
+
+fn convert_share_from_base64(shares: &str) -> Vec<(u8, u8)> {
+    let mut response = Vec::new();
+    let binding = base64::decode(shares).unwrap();
+    let mut iter = binding.chunks(2);
+
+    while let Some(chunk1) = iter.next() {
+        let x = chunk1[0];
+        let y = chunk1[1];
+        response.push((x, y));
+    }
+    response
 }
 
 /// Generate a random polynomial of degree X with the secret as the last coefficient
@@ -238,4 +286,27 @@ mod tests {
 
         recover(&mut new_shares);
     }
+
+    #[test]
+    fn test_extract_and_collect_shares() {
+        let expected_secret = "HELLO WORLD";      
+        let threshold = 3;
+
+        let shares = sss(expected_secret, threshold, 5);
+        let share1 = extract_share(&shares, 0);
+        let share2 = extract_share(&shares, 1);
+        let share3 = extract_share(&shares, 2);
+
+        let mut collected_shares = collect_shares(&vec![(0 as u8, share1), (1, share2), (2, share3)]);
+        let recovered_secret = recover(&mut collected_shares);
+        assert_eq!(expected_secret, recovered_secret);
+
+        let share1 = extract_share(&shares, 0);
+        let share2 = extract_share(&shares, 1);
+        let share3 = extract_share(&shares, 2);
+        let mut collected_shares = collect_shares(&vec![(0 as u8, share2), (1, share1), (2, share3)]);
+        let recovered_secret = recover(&mut collected_shares);
+        assert_eq!(expected_secret, recovered_secret);
+    }
+
 }
