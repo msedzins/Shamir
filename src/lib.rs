@@ -4,6 +4,25 @@ use std::collections::HashMap;
 
 mod rnd;
 
+/// Generates a set of Shamir secret shares from a secret string.
+///
+/// # Arguments
+///
+/// * `secret` - A string slice that holds the secret to be shared.
+/// * `threshold` - The minimum number of shares needed to reconstruct the secret.
+/// * `shares_num` - The total number of shares to generate.
+///
+/// # Returns
+///
+/// Returns a vector of tuples. Each tuple is one share. It contains a counter and a vector of points on XY axes. 
+/// Each point represent one hidden letter of the secret.
+///
+/// # Example
+///
+/// ```
+/// let secret = "Hello, world!";
+/// let shares = sss(secret, 3, 5);
+/// ```
 pub fn sss(secret: &str, threshold: u8, shares_num: u8) -> Vec<(u8, Vec<(u8, u8)>)> {
     let mut shares = Vec::new();
     let mut counter = 0;
@@ -18,7 +37,17 @@ pub fn sss(secret: &str, threshold: u8, shares_num: u8) -> Vec<(u8, Vec<(u8, u8)
     shares
 }
 
-
+/// Extracts a share from a vector of shares (each share should be handed over to different party)
+/// # Arguments
+/// * `shares` - A vector of tuples. Each tuple is one share. It contains a counter and a vector of points on XY axes.
+/// Each point represent one hidden letter of the secret.
+/// * `index` - The index of the share to extract.
+/// # Returns
+/// Returns a base64 encoded string of the share.
+/// # Example
+/// ```
+/// let share = extract_share(&shares, 0);
+/// ```
 pub fn extract_share(shares: &Vec<(u8, Vec<(u8, u8)>)>, index: u8) -> String {
     let mut share = Vec::new();
     shares.iter().for_each(|s| {
@@ -27,6 +56,16 @@ pub fn extract_share(shares: &Vec<(u8, Vec<(u8, u8)>)>, index: u8) -> String {
     convert_share_to_base64(&share)
 }
 
+/// Collects shares from different parties and combines them into one vector
+/// # Arguments
+/// * `shares` - A vector of tuples. Each tuple is one share. It contains a counter and a base64 encoded list of points on XY axes.
+/// # Returns
+/// Returns a vector of tuples. Each tuple is one share. It contains a counter and a vector of points on XY axes.
+/// Each point represent one hidden letter of the secret.
+/// # Example
+/// ```
+/// let collected_shares = collect_shares(&vec![(0 as u8, share1), (1, share2), (2, share3)]);
+/// ```
 pub fn collect_shares(shares: &Vec<(u8, String)>) -> Vec<(u8, Vec<(u8, u8)>)> {
     let mut converted_shares = Vec::new();
     shares.iter().for_each(|s| {
@@ -46,6 +85,17 @@ pub fn collect_shares(shares: &Vec<(u8, String)>) -> Vec<(u8, Vec<(u8, u8)>)> {
     collected_shares
 }
 
+/// Recovers the secret from the shares
+/// # Arguments
+/// * `shares` - A vector of tuples. Each tuple is one share. It contains a counter and a vector of points on XY axes.
+/// 
+/// # Returns
+/// Returns the secret as a string.
+/// # Example
+/// ```
+/// let recovered_secret = recover(&mut shares);
+/// ```
+/// Note: Will panic if there are not enough shares to recover the secret.
 pub fn recover(shares: &mut Vec<(u8, Vec<(u8, u8)>)>) -> String {
 
     shares.sort_by(|a, b | a.0.cmp(&b.0));
